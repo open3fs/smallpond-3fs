@@ -1106,9 +1106,18 @@ class ExecSqlQueryMixin(Task):
         # prepare connection
         effective_cpu_count = math.ceil(self.cpu_limit * self.cpu_overcommit_ratio)
         effective_memory_size = round_up(self.memory_limit * self.memory_overcommit_ratio, MB)
+
+        # load 3fs extension for duckdb
+        # NOTE: before load the extension, duckdb needs to install this extension first
+        conn.load_extension('threefs')
+
         self.exec_query(
             conn,
             f"""
+  SET threefs_cluster='open3fs';
+  SET threefs_mount_root='/3fs/';
+  SET threefs_use_usrbio=true;
+  SET threefs_iov_size=16384;
   SET threads TO {effective_cpu_count};
   SET memory_limit='{effective_memory_size // MB}MB';
   SET temp_directory='{self.temp_abspath if self.enable_temp_directory else ""}';
@@ -2701,6 +2710,7 @@ class HashPartitionDuckDbTask(ExecSqlQueryMixin, HashPartitionTask):
     ):
         def write_partition_data(conn: duckdb.DuckDBPyConnection, partition_batch: List[Tuple[int, str]]) -> int:
             total_num_rows = 0
+
             for partition_idx, partition_filter in partition_batch:
                 if self.use_parquet_writer:
                     partition_data = conn.sql(partition_filter).fetch_arrow_table()
@@ -2745,6 +2755,14 @@ class HashPartitionDuckDbTask(ExecSqlQueryMixin, HashPartitionTask):
 
         with contextlib.ExitStack() as stack:
             db_conns = [stack.enter_context(conn.cursor()) for _ in range(self.num_workers)]
+            # need reset setting
+            for db_conn in db_conns:
+                db_conn.sql("""
+                SET threefs_cluster='open3fs';
+                SET threefs_mount_root='/3fs/';
+                SET threefs_use_usrbio=true;
+                SET threefs_iov_size=16384;
+                """)
             self.perf_metrics["num output rows"] += sum(self.io_workers.map(write_partition_data, db_conns, partition_batches))
         elapsed_time = self.add_elapsed_time("output dump time (secs)")
         logger.debug(f"write partition data #{batch_index+1}: {elapsed_time:.3f} secs")

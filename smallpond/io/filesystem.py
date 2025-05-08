@@ -11,8 +11,8 @@ from loguru import logger
 
 from smallpond.common import MB
 
-HF3FS_MOUNT_POINT_PREFIX = "/hf3fs"
-HF3FS_FSSPEC_PROTOCOL = "hf3fs://"
+HF3FS_MOUNT_POINT_PREFIX = "/3fs"
+HF3FS_FSSPEC_PROTOCOL = "3fs://"
 
 
 def on_hf3fs(path: str):
@@ -37,7 +37,8 @@ def remove_path(path: str):
     if on_hf3fs(realpath):
         try:
             link = os.path.join(
-                extract_hf3fs_mount_point(realpath),
+                #extract_hf3fs_mount_point(realpath),
+                HF3FS_MOUNT_POINT_PREFIX,
                 "3fs-virt/rm-rf",
                 f"{os.path.basename(realpath)}-{time.time_ns()}",
             )
