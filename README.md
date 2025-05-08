@@ -5,9 +5,27 @@
 [![Docs](https://img.shields.io/badge/docs-latest-brightgreen.svg)](https://deepseek-ai.github.io/smallpond/)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-A lightweight data processing framework built on [DuckDB] and [3FS].
+## Project Overview
+
+This repository is a fork of https://github.com/deepseek-ai/smallpond, enhanced with additional support for duckdb engine to aceess 3FS using hf3fs_usrbio.
+
+## Using hf3fs_usrbio with DuckDB Engine
+
+Ensure the 3FS storage cluster is mounted at /3fs/ , so duckdb engine  use hf3fs_usrbio to acess files in 3FS, and arrow engine use standard POSIX to acess files in 3FS.
+```ptyhon
+import smallpond
+
+sp = smallpond.init(data_root="/3fs/duckdb/data_root/")
+df = sp.read_parquet("/3fs/duckdb/prices.parquet")
+df = df.repartition(3, hash_by="ticker")
+df = sp.partial_sql("SELECT ticker, min(price), max(price) FROM {0} GROUP BY ticker", df)
+print(df.to_pandas())
+df.write_parquet("/3fs/duckdb/output/")
+````
 
 ## Features
+
+Smallpond is a lightweight data processing framework built on [DuckDB] and [3FS].
 
 - 🚀 High-performance data processing powered by DuckDB
 - 🌍 Scalable to handle PB-scale datasets
